@@ -1,0 +1,44 @@
+/**
+ * Gradle plugin
+ * ad-axion-release-config.gradle
+ * Configures the "pl.allegro.tech.build.axion-release" plugin.
+ */
+
+scmVersion {
+	useHighestVersion = true
+	versionCreator 'simple'
+	sanitizeVersion = true
+	tag {
+		initialVersion = { tag, position -> '0.1.0' }
+		prefix = ''
+		versionSeparator = ''
+		versionIncrementer this.&incrementReleaseVersion
+	}
+	checks {
+		uncommittedChanges = false
+	}
+}
+
+def incrementReleaseVersion(context) {
+	def versionIncrementer
+	def version = context.currentVersion
+	if (project.hasProperty('release.scope')) {
+		def scope = project.property('release.scope')
+		switch (scope) {
+			case 'patch':
+				versionIncrementer = version.incrementPatchVersion()
+				break
+			case 'minor':
+				versionIncrementer = version.incrementMinorVersion()
+				break
+			case 'major':
+				versionIncrementer = version.incrementMajorVersion()
+				break
+			default:
+				versionIncrementer = version.incrementPatchVersion()
+		}
+	} else {
+		versionIncrementer = version.incrementPatchVersion()
+	}
+	return versionIncrementer
+}
