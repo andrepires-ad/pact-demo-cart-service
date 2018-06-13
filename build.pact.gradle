@@ -1,0 +1,22 @@
+
+pact {
+	publish {
+		version = project.version
+		tags = [ project.properties['BRANCH_NAME']]
+		pactDirectory = "$rootDir/build/pacts"
+		pactBrokerUrl = project.properties['pactbroker.host']
+		pactBrokerUsername = project.properties['pactbroker.username']
+		pactBrokerPassword = project.properties['pactbroker.password']
+	}
+}
+
+
+test {
+	systemProperty 'pact.rootDir', "$buildDir/pacts"
+	systemProperty 'spring.profiles.active', "local"
+	systemProperty 'spring.config.location', "${rootProject.rootDir}/config/"
+}
+
+task contractTest() {
+	dependsOn test
+}

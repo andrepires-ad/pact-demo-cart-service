@@ -1,0 +1,134 @@
+swagger: '2.0'
+info:
+  version: '0.1.0'
+  title: 'Product API'
+  description: 'The Product Service API'
+
+schemes:
+ - https
+consumes:
+ - application/json
+produces:
+ - application/json
+
+parameters:
+  product-id:
+    name: productId
+    in: path
+    description: The product id
+    required: true
+    type: string
+
+paths:
+  /products/{productId}:
+    get:
+      tags:
+        - products
+      summary: Get product by id
+      description: Returns the product.
+      operationId: getProductById
+      parameters:
+        - $ref: '#/parameters/product-id'
+      responses:
+        200:
+          $ref: '#/responses/ProductsResponse'
+        400:
+          $ref: '#/responses/BadRequest'
+        500:
+          $ref: '#/responses/ServerError'
+
+#######################################################
+# MODELS
+#######################################################
+
+definitions:
+
+  ProductWsDTO:
+    description: 'The Product model'
+    type: object
+    properties:
+      id:
+        description: 'The product id.'
+        type: string
+      name:
+        description: 'The product name.'
+        type: string
+
+  ErrorDetail:
+    type: object
+    required:
+      - code
+      - message
+    properties:
+      code:
+        type: string
+        description: "The error code, in screaming snake case: eg PAYLOAD_VALIDATION_ERROR"
+        pattern: "^[A-Z]+(_[A-Z]+)*$"
+      message:
+        type: string
+        description: "descriptive error message for debugging"
+      moreInfo:
+        type: string
+        description: "link to documentation to investigate further and finding support"
+    example:
+      code: "INVALID_PARAMETER"
+      message: "Missing required parameter"
+
+  Error:
+    type: object
+    required:
+      - status
+      - code
+    properties:
+      status:
+        type: integer
+        description: "original HTTP error code, should be consistent with the response HTTP code"
+        minimum: 100
+        maximum: 599
+      code:
+        type: string
+        description: "The error code, in screaming snake case: eg PAYLOAD_VALIDATION_ERROR"
+        pattern: "^[A-Z]+(_[A-Z]+)*$"
+      message:
+        type: string
+        description: "descriptive error message for debugging"
+      moreInfo:
+        type: string
+        description: "link to documentation to investigate further and finding support"
+      details:
+        type: array
+        items:
+          $ref: '#/definitions/ErrorDetail'
+
+#######################################################
+# RESPONSES
+#######################################################
+
+responses:
+  CartsResponse:
+    description: The products' response
+    schema:
+      $ref: '#/definitions/ProductWsDTO'
+
+  BadRequest:
+    description: Indicates a bad request, which can be due to violation(s) of HTTP or API rules
+    schema:
+      $ref: '#/definitions/Error'
+    examples:
+      application/json:
+        status: 400
+        code: "BAD_REQUEST"
+        message: "The locale is not recognized."
+
+  ServerError:
+    description: Indicates an unknown internal error that prevents the server from processing the request
+    schema:
+      $ref: '#/definitions/Error'
+    examples:
+      application/json:
+        statusCode: 500
+        type: "UNKNOWN_ERROR"
+        message: "Internal server error."
+
+host: www.appdirect.com
+basePath: /product/0.1

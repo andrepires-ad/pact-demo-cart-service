@@ -1,0 +1,175 @@
+buildscript {
+	ext {
+		lombokVersion = '1.16.20'
+		retrofitVersion = "2.3.0"
+		javaxValidationVersion = '1.1.0.Final'
+	}
+	repositories {
+		jcenter()
+		mavenCentral()
+		maven { url "https://plugins.gradle.org/m2/" }
+	}
+	dependencies {
+		classpath group: 'au.com.dius', name: 'pact-jvm-provider-gradle_2.12', version: '3.5.14'
+		classpath "org.springframework.boot:spring-boot-gradle-plugin:1.5.8.RELEASE"
+		classpath "io.swagger:swagger-codegen:2.2.2"
+	}
+}
+
+plugins {
+	id 'java'
+	id 'idea'
+	id 'pl.allegro.tech.build.axion-release' version '1.7.2'
+	id "au.com.dius.pact" version "3.5.14"
+}
+
+apply plugin: 'org.springframework.boot'
+apply plugin: 'maven-publish'
+
+apply from: 'build.semver.gradle'
+
+dependencyManagement {
+	imports {
+		mavenBom("org.springframework.cloud:spring-cloud-dependencies:Dalston.SR4")
+	}
+}
+
+/**
+ * Returns the project version.
+ * The project version is either the PR number or, in case of absence, the version defined from the axion-release plugin.
+ * If version is a snapshot, then returns 'latest' as the version.
+ * See gradle/build.semver.gradle for more details.
+ */
+def getProjectVersion() {
+	return project.properties['PR_NUMBER'] ? project.properties['PR_NUMBER'] + "-SNAPSHOT" : scmVersion.version
+}
+
+group = 'com.appdirect.pact.consumer'
+version = getProjectVersion()
+
+ext {
+	pactBrokerTags = project.version  =~ /-SNAPSHOT$/ ? [project.version, "snapshot"] : [project.version, "master"]
+}
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+configurations {
+	generatedCompile
+}
+
+dependencies {
+
+	compile("org.springframework.boot:spring-boot-starter-web")
+	compile("org.springframework.boot:spring-boot-starter-actuator")
+	compile('net.logstash.logback:logstash-logback-encoder:3.5')
+	// retrofit
+	compile("com.squareup.retrofit2:retrofit:${retrofitVersion}")
+	compile("com.squareup.retrofit2:converter-jackson:${retrofitVersion}")
+
+	compile("org.projectlombok:lombok:${lombokVersion}")
+	compile("javax.validation:validation-api:${javaxValidationVersion}")
+
+	// test dependencies
+	testCompile("org.springframework.boot:spring-boot-starter-test")
+	testCompile "org.springframework.boot:spring-boot"
+	testCompile('au.com.dius:pact-jvm-consumer-junit_2.12:3.5.14')
+	testCompile group: 'junit', name: 'junit', version:'4.12'
+	testCompile('au.com.dius:pact-jvm-consumer-junit_2.12:3.5.14')
+	testCompile group: 'au.com.dius', name: 'pact-jvm-provider-spring_2.12', version: '3.5.14'
+
+
+	generatedCompile 'org.springframework.boot:spring-boot-starter-data-rest'
+	generatedCompile 'io.springfox:springfox-swagger2:2.5.0'
+	generatedCompile 'io.springfox:springfox-swagger-ui:2.5.0'
+
+}
+
+tasks.withType(JavaCompile) {
+	options.encoding = 'UTF-8'
+}
+
+repositories {
+	maven { url "http://repo.maven.apache.org/maven2" }
+	jcenter()
+}
+
+sourceSets {
+	generated {
+		compileClasspath = configurations.generatedCompile
+	}
+	main {
+		compileClasspath += generated.output
+		runtimeClasspath += generated.output
+	}
+	test {
+		compileClasspath += generated.output
+		runtimeClasspath += generated.output
+	}
+}
+
+
+
+compileGeneratedJava.dependsOn "generateApi"
+classes.dependsOn generatedClasses
+compileJava.dependsOn compileGeneratedJava
+
+ideaModule.dependsOn "generateApi"
+
+springBoot {
+	buildInfo {
+		additionalProperties = [
+				'version': project.version
+		]
+	}
+}
+
+bootRun {
+	// passing system property arguments to Spring Boot.
+	systemProperties = System.properties
+	classpath += sourceSets.generated.output
+}
+
+jar {
+	from sourceSets.generated.output
+}
+
+
+
+
+/**
+ * ********************************************************************************
+ * Swagger API Code Generation
+ * ********************************************************************************
+ */
+
+import io.swagger.codegen.config.CodegenConfigurator
+import io.swagger.codegen.DefaultGenerator
+
+def swaggerTargetFolder = 'src/generated/java'
+
+task generateApi {
+	def swaggerSourceFile = 'src/main/resources/cart-api-spec.yml'
+	inputs.file("$projectDir/$swaggerSourceFile")
+	outputs.dir("$projectDir/$swaggerTargetFolder")
+	doLast {
+		def config = new CodegenConfigurator()
+		config.setInputSpec("file:///$projectDir/$swaggerSourceFile")
+		config.setOutputDir("$projectDir")
+		config.setLang('spring')
+		config.setAdditionalProperties([
+				'interfaceOnly' : 'true',
+				'apiPackage'    : 'com.appdirect.demo.cart.api',
+				'modelPackage'  : 'com.appdirect.demo.cart.model',
+				'sourceFolder'  : swaggerTargetFolder
+		])
+		new DefaultGenerator().opts(config.toClientOptInput()).generate()
+	}
+}
+
+
+clean.doFirst {
+	delete("${projectDir}/$swaggerTargetFolder")
+}
+
+apply from: 'build.pact.gradle'
