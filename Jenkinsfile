@@ -34,6 +34,7 @@ pipeline {
 
         stage('Build') {
             steps {
+                githubPRComment(repositoryName, "This is a test comment", [respositoryOwner: respositoryOwner, githubCredentialsId: "github-shared-lib-test-token"])
                 echo 'Building project without tests.'
                 sh "./gradlew clean build -x test"
             }
