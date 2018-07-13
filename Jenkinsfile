@@ -51,6 +51,24 @@ pipeline {
             }
         }
 
+        stage('Contract Tests') {
+            steps {
+                echo 'Publishing contract files to Pact broker'
+                script {
+                    pactBrokerUrl = env.PACT_BROKER_URL
+                    withPullRequestBranch {
+                        pactBrokerUrl = env.PACT_BROKER_SNAPSHOT_URL
+                    }
+                }
+                withCredentials([usernamePassword(
+                        credentialsId: 'pactbroker-auth',
+                        usernameVariable: 'PACT_USER',
+                        passwordVariable: 'PACT_PASSWORD')]) {
+                    sh "./gradlew contractTest pactPublish -Ppactbroker.username=$PACT_USER -Ppactbroker.password=$PACT_PASSWORD -Ppactbroker.host=${pactBrokerUrl}"
+                }
+            }
+        }
+
         stage('Static Analysis') {
             steps {
                 echo 'Performing static analysis.'
